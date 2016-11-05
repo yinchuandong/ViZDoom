@@ -106,3 +106,4 @@ src/vizdoom/zlib/x64/
 # CLion & PyCharm
 **/.idea
 
+examples/python/img

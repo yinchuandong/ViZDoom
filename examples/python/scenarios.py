@@ -23,10 +23,10 @@ game = DoomGame()
 # Don't load two configs cause the second will overrite the first one.
 # Multiple config files are ok but combining these ones doesn't make much sense.
 
-game.load_config("../../examples/config/basic.cfg")
+# game.load_config("../../examples/config/basic.cfg")
 # game.load_config("../../examples/config/simpler_basic.cfg")
 # game.load_config("../../examples/config/rocket_basic.cfg")
-# game.load_config("../../examples/config/deadly_corridor.cfg")
+game.load_config("../../examples/config/deadly_corridor.cfg")
 # game.load_config("../../examples/config/deathmatch.cfg")
 # game.load_config("../../examples/config/defend_the_center.cfg")
 # game.load_config("../../examples/config/defend_the_line.cfg")
@@ -66,6 +66,9 @@ for i in range(episodes):
         print("Game Variables:", state.game_variables)
         print("Performed action:", game.get_last_action())
         print("Last Reward:", reward)
+        print("len(actions):", len(actions))
+        print("actions[0]:", actions[0])
+        print("actions_num:", actions_num)
         print("=====================")
 
         # Sleep some time because processing is too fast to watch.
