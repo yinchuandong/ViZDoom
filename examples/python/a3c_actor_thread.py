@@ -88,8 +88,10 @@ class A3CActorThread(object):
 
         for i in range(LOCAL_T_MAX):
             policy_, value_ = self.local_network.run_policy_and_value(sess, self.game_state.s_t)
-            # print 'policy=', policy_
-            # print 'value=', value_
+            if self.local_t % 100 == 0:
+                print ('thread: %d, global_t: %d, value: %f') % (self.thread_index, global_t, value_)
+                print 'policy:', policy_
+
             actionId = self.choose_action(policy_)
 
             states.append(self.game_state.s_t)
@@ -120,7 +122,6 @@ class A3CActorThread(object):
         R = 0.0
         if not terminal_end:
             R = self.local_network.run_value(sess, self.game_state.s_t)
-        print ('global_t: %d, R: %f') % (global_t, R)
 
         states.reverse()
         actions.reverse()

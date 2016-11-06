@@ -107,3 +107,4 @@ src/vizdoom/zlib/x64/
 **/.idea
 
 examples/python/img
+examples/python/checkpoints*
