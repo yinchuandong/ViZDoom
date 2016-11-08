@@ -103,7 +103,8 @@ class A3CActorThread(object):
             terminal = self.game_state.terminal
 
             self.episode_reward += reward
-            rewards.append(np.clip(reward, -1.0, 1.0))
+            # rewards.append(np.clip(reward, -1.0, 1.0))
+            rewards.append(reward)
 
             self.local_t += 1
 
