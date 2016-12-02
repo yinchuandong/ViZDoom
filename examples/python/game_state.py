@@ -7,7 +7,7 @@ import numpy as np
 
 
 def preprocess(img):
-    img = Image.fromarray(img)
+    img = Image.fromarray(img).convert('L')
     img = img.resize((84, 84), Image.ANTIALIAS)
     img = np.array(img)
     return img
@@ -31,7 +31,8 @@ class GameState():
         self.game = initialize_vizdoom("../config/basic.cfg")
         # self.game = initialize_vizdoom("../../examples/config/deadly_corridor.cfg")
         self.button_size = self.game.get_available_buttons_size()
-        self.actions = [list(a) for a in it.product([0, 1], repeat=self.button_size)]
+        # self.actions = [list(a) for a in it.product([0, 1], repeat=self.button_size)]
+        self.actions = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
         self.reset()
         return
 
@@ -39,18 +40,18 @@ class GameState():
         self.game.new_episode()
         self.terminal = self.game.is_episode_finished()
         img = self.game.get_state().screen_buffer
-        self.s_t = preprocess(img)
+        x_t = preprocess(img)
+        self.s_t = np.stack((x_t, x_t, x_t, x_t), axis=2)
         self.reward = 0.0
         return
 
-    def process(self, actionId):
-        self.reward = self.game.make_action(self.actions[actionId])
+    def process(self, action_id):
+        self.reward = self.game.make_action(self.actions[action_id])
         self.terminal = self.game.is_episode_finished()
         if not self.terminal:
             img = self.game.get_state().screen_buffer
-            self.s_t1 = preprocess(img)
-        else:
-            self.s_t1 = self.s_t
+            x_t1 = preprocess(img)
+            self.s_t1 = np.append(self.s_t[:, :, 1:], x_t1, axis=2)
         return
 
     def update(self):
@@ -68,7 +69,7 @@ def test():
             Image.fromarray(gamestate.s_t).save('img/s_t.png')
             Image.fromarray(gamestate.s_t1).save('img/s_t1.png')
             print 'reward:', gamestate.reward
-            print 'terminal', gamestate.terminal
+            print 'terminal:', gamestate.terminal
             print 'action_size:', len(gamestate.actions)
             gamestate.update()
             time.sleep(0.02)
