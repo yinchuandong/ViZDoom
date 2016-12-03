@@ -32,7 +32,7 @@ class GameState():
         # self.game = initialize_vizdoom("../../examples/config/deadly_corridor.cfg")
         self.button_size = self.game.get_available_buttons_size()
         # self.actions = [list(a) for a in it.product([0, 1], repeat=self.button_size)]
-        self.actions = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
+        self.actions = [[1, 0, 1], [0, 1, 1], [0, 0, 1]]
         self.reset()
         return
 
@@ -51,6 +51,7 @@ class GameState():
         if not self.terminal:
             img = self.game.get_state().screen_buffer
             x_t1 = preprocess(img)
+            x_t1 = np.reshape(x_t1, (84, 84, 1))
             self.s_t1 = np.append(self.s_t[:, :, 1:], x_t1, axis=2)
         return
 

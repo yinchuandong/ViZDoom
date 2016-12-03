@@ -108,3 +108,4 @@ src/vizdoom/zlib/x64/
 
 examples/python/img
 examples/python/checkpoints*
+examples/python/tmp*
