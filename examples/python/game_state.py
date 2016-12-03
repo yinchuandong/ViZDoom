@@ -33,6 +33,7 @@ class GameState():
         self.button_size = self.game.get_available_buttons_size()
         # self.actions = [list(a) for a in it.product([0, 1], repeat=self.button_size)]
         self.actions = [[1, 0, 1], [0, 1, 1], [0, 0, 1]]
+        self.skip_rate = 4
         self.reset()
         return
 
@@ -46,7 +47,7 @@ class GameState():
         return
 
     def process(self, action_id):
-        self.reward = self.game.make_action(self.actions[action_id])
+        self.reward = self.game.make_action(self.actions[action_id], self.skip_rate)
         self.terminal = self.game.is_episode_finished()
         if not self.terminal:
             img = self.game.get_state().screen_buffer
