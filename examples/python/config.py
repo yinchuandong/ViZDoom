@@ -14,9 +14,8 @@ INITIAL_ALPHA_LOW = 1e-4    # log_uniform low limit for learning rate
 INITIAL_ALPHA_HIGH = 1e-2   # log_uniform high limit for learning rate
 INITIAL_ALPHA_LOG_RATE = 0.4226  # log_uniform interpolate rate for learning rate (around 7 * 10^-4)
 
-GREEDY_EPSILON_START = [1.0, 1.0, 1.0]  # initial epsilon greedy
-GREEDY_EPSILON_END = [0.1, 0.01, 0.5]  # final epsilon greedy
-GREEDY_DISTRIBUTION = [0.4, 0.3, 0.3]  # the probility of choosing
+GREEDY_EPSILON_START = 1.0  # initial epsilon greedy
+GREEDY_EPSILON_END = 0.1  # final epsilon greedy
 GREEDY_MAX_STEP = 4 * 10**6  # the first 4 million frames
 
 
