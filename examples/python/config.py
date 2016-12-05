@@ -5,7 +5,7 @@ ACTION_DIM = 3
 
 LOCAL_T_MAX = 5  # repeat step size
 RMSP_ALPHA = 0.99  # decay parameter for RMSProp
-RMSP_EPSILON = 0.1  # epsilon parameter for RMSProp
+RMSP_EPSILON = 1e-10  # epsilon parameter for RMSProp
 GAMMA = 0.99
 ENTROPY_BETA = 0.01  # 0.01 for FFNet
 MAX_TIME_STEP = 10 * 10**7

@@ -158,12 +158,12 @@ class A3CLSTMNetwork(A3CNetwork):
 
             # conv1
             self.W_conv1 = weight_variable([8, 8, state_chn, 32])
-            self.b_conv1 = bias_variable([16])
+            self.b_conv1 = bias_variable([32])
             h_conv1 = tf.nn.relu(conv2d(self.state_input, self.W_conv1, 4) + self.b_conv1)
 
             # conv2
-            self.W_conv2 = weight_variable([4, 4, 16, 64])
-            self.b_conv2 = bias_variable([32])
+            self.W_conv2 = weight_variable([4, 4, 32, 64])
+            self.b_conv2 = bias_variable([64])
             h_conv2 = tf.nn.relu(conv2d(h_conv1, self.W_conv2, 2) + self.b_conv2)
 
             h_conv2_out_size = np.prod(h_conv2.get_shape().as_list()[1:])
