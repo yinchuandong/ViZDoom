@@ -7,7 +7,7 @@ import numpy as np
 
 
 def preprocess(img):
-    img = Image.fromarray(img).convert('L')
+    img = Image.fromarray(img)
     img = img.resize((84, 84), Image.ANTIALIAS)
     img = np.array(img)
     return img
@@ -42,7 +42,11 @@ class GameState():
         self.terminal = self.game.is_episode_finished()
         img = self.game.get_state().screen_buffer
         x_t = preprocess(img)
-        self.s_t = np.stack((x_t, x_t, x_t, x_t), axis=2)
+        # self.s_t = np.stack((x_t, x_t, x_t, x_t), axis=2)
+        self.s_t = x_t
+        self.s_t = np.append(self.s_t, x_t, axis=2)
+        self.s_t = np.append(self.s_t, x_t, axis=2)
+        self.s_t = np.append(self.s_t, x_t, axis=2)
         self.reward = 0.0
         return
 
@@ -52,8 +56,8 @@ class GameState():
         if not self.terminal:
             img = self.game.get_state().screen_buffer
             x_t1 = preprocess(img)
-            x_t1 = np.reshape(x_t1, (84, 84, 1))
-            self.s_t1 = np.append(self.s_t[:, :, 1:], x_t1, axis=2)
+            # x_t1 = np.reshape(x_t1, (84, 84, 1))
+            self.s_t1 = np.append(self.s_t[:, :, 3:], x_t1, axis=2)
         return
 
     def update(self):
@@ -68,8 +72,9 @@ def test():
         gamestate.reset()
         while not gamestate.terminal:
             gamestate.process(randint(0, len(gamestate.actions) - 1))
-            Image.fromarray(gamestate.s_t[:, :, -1]).save('img/s_t.png')
-            Image.fromarray(gamestate.s_t1[:, :, -1]).save('img/s_t1.png')
+            Image.fromarray(gamestate.s_t[:, :, 9:]).save('img/s_t.png')
+            Image.fromarray(gamestate.s_t1[:, :, 9:]).save('img/s_t1.png')
+            print np.shape(gamestate.s_t), np.shape(gamestate.s_t1)
             print 'reward:', gamestate.reward
             print 'terminal:', gamestate.terminal
             print 'action_size:', len(gamestate.actions)
