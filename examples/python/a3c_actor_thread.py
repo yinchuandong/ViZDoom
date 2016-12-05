@@ -66,10 +66,10 @@ class A3CActorThread(object):
         return learning_rate
 
     def choose_action(self, policy_output):
-        if self.epsilon > GREEDY_EPSILON_END:
-            self.epsilon -= (GREEDY_EPSILON_START - GREEDY_EPSILON_END) / GREEDY_MAX_STEP
-        if random.random() <= self.epsilon:
-            return random.randrange(ACTION_DIM)
+        # if self.epsilon > GREEDY_EPSILON_END:
+        #     self.epsilon -= (GREEDY_EPSILON_START - GREEDY_EPSILON_END) / GREEDY_MAX_STEP
+        # if random.random() <= self.epsilon:
+        #     return random.randrange(ACTION_DIM)
 
         values = []
         sum = 0.0

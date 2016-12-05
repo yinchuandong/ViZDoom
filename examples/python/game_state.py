@@ -68,15 +68,17 @@ def test():
         gamestate.reset()
         while not gamestate.terminal:
             gamestate.process(randint(0, len(gamestate.actions) - 1))
-            Image.fromarray(gamestate.s_t).save('img/s_t.png')
-            Image.fromarray(gamestate.s_t1).save('img/s_t1.png')
+            Image.fromarray(gamestate.s_t[:, :, -1]).save('img/s_t.png')
+            Image.fromarray(gamestate.s_t1[:, :, -1]).save('img/s_t1.png')
             print 'reward:', gamestate.reward
             print 'terminal:', gamestate.terminal
             print 'action_size:', len(gamestate.actions)
             gamestate.update()
+            break
             time.sleep(0.02)
         print "Result:", gamestate.game.get_total_reward()
         time.sleep(2)
+        break
     return
 
 
