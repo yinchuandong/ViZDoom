@@ -50,7 +50,6 @@ class A3CActorThread(object):
 
         self.local_t = 0
         self.initial_learning_rate = initial_learning_rate
-        self.epsilon = GREEDY_EPSILON_START
 
         # for log
         self.episode_reward = 0.0
@@ -66,9 +65,7 @@ class A3CActorThread(object):
         return learning_rate
 
     def choose_action(self, policy_output):
-        if self.epsilon > GREEDY_EPSILON_END:
-            self.epsilon -= (GREEDY_EPSILON_START - GREEDY_EPSILON_END) / GREEDY_MAX_STEP
-        if random.random() <= self.epsilon:
+        if random.random() <= 0.2:
             return random.randrange(ACTION_DIM)
 
         values = []
@@ -200,7 +197,8 @@ class A3CActorThread(object):
                 self.local_network.R: batch_R
             })
 
-        cur_learning_rate = self._anneal_learning_rate(global_t)
+        # cur_learning_rate = self._anneal_learning_rate(global_t)
+        cur_learning_rate = INITIAL_ALPHA_LOW
         sess.run(self.apply_gradients, feed_dict={
             self.learning_rate_input: cur_learning_rate
         })
