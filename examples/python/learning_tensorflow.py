@@ -8,9 +8,11 @@ import pickle
 from random import sample, randint, random
 from time import time, sleep
 import numpy as np
-import skimage.color, skimage.transform
+# import skimage.color, skimage.transform
 import tensorflow as tf
 from tqdm import trange
+from PIL import Image
+
 
 # Q-learning settings
 learning_rate = 0.00025
@@ -44,9 +46,12 @@ config_file_path = "../../examples/config/simpler_basic.cfg"
 
 # Converts and down-samples the input image
 def preprocess(img):
-    img = skimage.transform.resize(img, resolution)
-    img = img.astype(np.float32)
+    # img = skimage.transform.resize(img, resolution)
+    # img = img.astype(np.float32)
+    img = Image.fromarray(img)
+    img = img.resize((resolution[1], resolution[0]), Image.ANTIALIAS)
     return img
+
 
 
 class ReplayMemory:
@@ -188,7 +193,7 @@ def initialize_vizdoom(config_file_path):
     print("Initializing doom...")
     game = DoomGame()
     game.load_config(config_file_path)
-    game.set_window_visible(False)
+    game.set_window_visible(True)
     game.set_mode(Mode.PLAYER)
     game.set_screen_format(ScreenFormat.GRAY8)
     game.set_screen_resolution(ScreenResolution.RES_640X480)
