@@ -9,8 +9,10 @@ import signal
 
 from a3c_network import A3CFFNetwork, A3CLSTMNetwork
 from a3c_actor_thread import A3CActorThread
-
 from config import *
+
+from redis_queue import RedisQueue
+import cPickle
 
 
 def log_uniform(lo, hi, rate):
@@ -30,19 +32,24 @@ class A3C(object):
             self.global_network = A3CLSTMNetwork(STATE_DIM, STATE_CHN, ACTION_DIM, self.device, -1)
         else:
             self.global_network = A3CFFNetwork(STATE_DIM, STATE_CHN, ACTION_DIM, self.device)
+        self.global_network.create_loss(ENTROPY_BETA)
 
         self.initial_learning_rate = log_uniform(INITIAL_ALPHA_LOW, INITIAL_ALPHA_HIGH, INITIAL_ALPHA_LOG_RATE)
+        print 'initial_learning_rate:', self.initial_learning_rate
         self.learning_rate_input = tf.placeholder('float')
         self.optimizer = tf.train.RMSPropOptimizer(learning_rate=self.learning_rate_input,
                                                    decay=RMSP_ALPHA, momentum=0.0, epsilon=RMSP_EPSILON)
 
+        grads_and_vars = self.optimizer.compute_gradients(
+            self.global_network.total_loss, self.global_network.get_vars())
+        self.apply_gradients = self.optimizer.apply_gradients(grads_and_vars)
+
         self.actor_threads = []
         for i in range(PARALLEL_SIZE):
-            actor_thread = A3CActorThread(i, self.global_network, self.initial_learning_rate,
-                                          self.learning_rate_input, self.optimizer, MAX_TIME_STEP, self.device)
+            actor_thread = A3CActorThread(i, self.global_network)
             self.actor_threads.append(actor_thread)
 
-        self.sess = tf.Session(config=tf.ConfigProto(log_device_placement=False, allow_soft_placement=True))
+        self.sess = tf.InteractiveSession()
         self.sess.run(tf.initialize_all_variables())
 
         self.reward_input = tf.placeholder(tf.float32)
@@ -56,6 +63,9 @@ class A3C(object):
 
         self.saver = tf.train.Saver()
         self.restore()
+
+        self.lock = threading.Lock()
+        self.rq = RedisQueue(REDIS_QUEUE_NAME)
         return
 
     def restore(self):
@@ -78,7 +88,7 @@ class A3C(object):
         self.saver.save(self.sess, CHECKPOINT_DIR + '/' + 'checkpoint', global_step=self.global_t)
         return
 
-    def train_function(self, parallel_index):
+    def predict_function(self, parallel_index, lock):
         actor_thread = self.actor_threads[parallel_index]
         while True:
             if self.stop_requested or (self.global_t > MAX_TIME_STEP):
@@ -88,10 +98,49 @@ class A3C(object):
                 self.summary_writer, self.summary_op,
                 self.reward_input, self.time_input
             )
+
             self.global_t += diff_global_t
-            if self.global_t % 100000 < LOCAL_T_MAX:
+            if self.global_t % 1000000 < LOCAL_T_MAX:
                 self.backup()
             # print 'global_t:', self.global_t
+        return
+
+    def train_function(self, lock):
+        batch_state = []
+        batch_action = []
+        batch_td = []
+        batch_R = []
+
+        train_count = 0
+        while True:
+            if self.stop_requested or (self.global_t > MAX_TIME_STEP):
+                break
+            data = self.rq.get()
+            (state, action, td, R) = cPickle.loads(data)
+
+            batch_state.append(state)
+            batch_action.append(action)
+            batch_td.append(td)
+            batch_R.append(R)
+
+            if len(batch_R) < 32:
+                continue
+
+            self.sess.run(self.apply_gradients, feed_dict={
+                self.global_network.state_input: batch_state,
+                self.global_network.action_input: batch_action,
+                self.global_network.td: batch_td,
+                self.global_network.R: batch_R,
+                self.learning_rate_input: self.initial_learning_rate
+            })
+
+            batch_state = []
+            batch_action = []
+            batch_td = []
+            batch_R = []
+
+            train_count += 1
+            print 'train_count:', train_count
         return
 
     def signal_handler(self, signal_, frame_):
@@ -100,20 +149,23 @@ class A3C(object):
         return
 
     def run(self):
-        train_treads = []
+        predict_treads = []
         for i in range(PARALLEL_SIZE):
-            train_treads.append(threading.Thread(target=self.train_function, args=(i,)))
+            predict_treads.append(threading.Thread(target=self.predict_function, args=(i, self.lock)))
 
         signal.signal(signal.SIGINT, self.signal_handler)
 
-        for t in train_treads:
+        for t in predict_treads:
             t.start()
+
+        train_thread = threading.Thread(target=self.train_function, args=(self.lock, ))
+        train_thread.start()
 
         print 'Press Ctrl+C to stop'
         signal.pause()
 
         print 'Now saving data....'
-        for t in train_treads:
+        for t in predict_treads:
             t.join()
 
         self.backup()

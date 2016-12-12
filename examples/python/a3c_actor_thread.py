@@ -3,10 +3,10 @@ import numpy as np
 import random
 import time
 
-from accum_trainer import AccumTrainer
-from a3c_network import A3CFFNetwork, A3CLSTMNetwork
 from config import *
-from game_state import GameState
+from game.game_state import GameState
+from redis_queue import RedisQueue
+import cPickle
 
 
 def timestamp():
@@ -15,58 +15,24 @@ def timestamp():
 
 class A3CActorThread(object):
 
-    def __init__(self,
-                 thread_index,
-                 global_network,
-                 initial_learning_rate,
-                 learning_rate_input,
-                 optimizer,
-                 max_global_time_step,
-                 device
-                 ):
+    def __init__(self, thread_index, global_network):
 
         self.thread_index = thread_index
-        self.learning_rate_input = learning_rate_input
-        self.max_global_time_step = max_global_time_step
-
-        if USE_LSTM:
-            self.local_network = A3CLSTMNetwork(STATE_DIM, STATE_CHN, ACTION_DIM, device, thread_index)
-        else:
-            self.local_network = A3CFFNetwork(STATE_DIM, STATE_CHN, ACTION_DIM, device)
-        self.local_network.create_loss(ENTROPY_BETA)
-        self.trainer = AccumTrainer(device)
-        self.trainer.create_minimize(self.local_network.total_loss, self.local_network.get_vars())
-        self.accum_gradients = self.trainer.accumulate_gradients()
-        self.reset_gradients = self.trainer.reset_gradients()
-
-        clip_accum_grads = [tf.clip_by_norm(accum_grad, 40.0) for accum_grad in self.trainer.get_accum_grad_list()]
-        self.apply_gradients = optimizer.apply_gradients(zip(clip_accum_grads, global_network.get_vars()))
-        # self.apply_gradients = optimizer.apply_gradients(
-        #     zip(self.trainer.get_accum_grad_list(), global_network.get_vars()))
-
-        self.sync = self.local_network.sync_from(global_network)
-
-        self.game_state = GameState()
-
+        self.local_network = global_network
+        self.game_state = GameState(thread_index)
         self.local_t = 0
-        self.initial_learning_rate = initial_learning_rate
 
         # for log
         self.episode_reward = 0.0
         self.episode_start_time = 0.0
         self.prev_local_t = 0
+
+        self.rq = RedisQueue(REDIS_QUEUE_NAME)
         return
 
-    def _anneal_learning_rate(self, global_time_step):
-        learning_rate = self.initial_learning_rate * \
-            (self.max_global_time_step - global_time_step) / self.max_global_time_step
-        if learning_rate < 0.0:
-            learning_rate = 0.0
-        return learning_rate
-
     def choose_action(self, policy_output):
-        if random.random() <= 0.2:
-            return random.randrange(ACTION_DIM)
+        if random.random() < RANDOM_ACTION_PROBILITY:
+            return random.randint(0, ACTION_DIM - 1)
 
         values = []
         sum = 0.0
@@ -99,13 +65,7 @@ class A3CActorThread(object):
         if self.episode_start_time == 0.0:
             self.episode_start_time = timestamp()
 
-        sess.run(self.reset_gradients)
-        # copy weight from global network
-        sess.run(self.sync)
-
         start_local_t = self.local_t
-        if USE_LSTM:
-            start_lstm_state = self.local_network.lstm_state_out
 
         for i in range(LOCAL_T_MAX):
             policy_, value_ = self.local_network.run_policy_and_value(sess, self.game_state.s_t)
@@ -124,7 +84,7 @@ class A3CActorThread(object):
             terminal = self.game_state.terminal
 
             self.episode_reward += reward
-            rewards.append(reward)
+            rewards.append(np.clip(reward, -1.0, 1.0))
 
             self.local_t += 1
 
@@ -148,6 +108,11 @@ class A3CActorThread(object):
                 if USE_LSTM:
                     self.local_network.reset_lstm_state()
                 break
+            # log
+            if self.local_t % 2000 == 0:
+                living_time = timestamp() - self.episode_start_time
+                self._record_log(sess, global_t, summary_writer, summary_op,
+                                 reward_input, self.episode_reward, time_input, living_time)
         # -----------end of batch (LOCAL_T_MAX)--------------------
 
         R = 0.0
@@ -176,32 +141,9 @@ class A3CActorThread(object):
             batch_td.append(td)
             batch_R.append(R)
 
-        if USE_LSTM:
-            batch_state.reverse()
-            batch_action.reverse()
-            batch_td.reverse()
-            batch_R.reverse()
-            sess.run(self.accum_gradients, feed_dict={
-                self.local_network.state_input: batch_state,
-                self.local_network.action_input: batch_action,
-                self.local_network.td: batch_td,
-                self.local_network.R: batch_R,
-                self.local_network.step_size: [len(batch_state)],
-                self.local_network.initial_lstm_state: start_lstm_state
-            })
-        else:
-            sess.run(self.accum_gradients, feed_dict={
-                self.local_network.state_input: batch_state,
-                self.local_network.action_input: batch_action,
-                self.local_network.td: batch_td,
-                self.local_network.R: batch_R
-            })
-
-        # cur_learning_rate = self._anneal_learning_rate(global_t)
-        cur_learning_rate = INITIAL_ALPHA_LOW
-        sess.run(self.apply_gradients, feed_dict={
-            self.learning_rate_input: cur_learning_rate
-        })
+            # put in into redis queue for asychronously train
+            data = cPickle.dumps((si, action, td, R))
+            self.rq.put(data)
 
         diff_local_t = self.local_t - start_local_t
         return diff_local_t
