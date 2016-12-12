@@ -2,6 +2,7 @@ import tensorflow as tf
 import numpy as np
 import random
 import time
+import threading
 
 from config import *
 from game_state import GameState
@@ -19,7 +20,7 @@ class A3CActorThread(object):
 
         self.thread_index = thread_index
         self.local_network = global_network
-        self.game_state = GameState(thread_index)
+        self.game_state = GameState()
         self.local_t = 0
 
         # for log

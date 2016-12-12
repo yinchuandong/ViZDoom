@@ -42,7 +42,7 @@ class GameState():
         self.terminal = self.game.is_episode_finished()
         img = self.game.get_state().screen_buffer
         x_t = preprocess(img)
-        x_t = x_t / 255.0
+        # x_t = x_t / 255.0
         self.s_t = np.stack((x_t, x_t, x_t, x_t), axis=2)
         self.reward = 0.0
         return
@@ -54,7 +54,7 @@ class GameState():
             img = self.game.get_state().screen_buffer
             x_t1 = preprocess(img)
             x_t1 = np.reshape(x_t1, (84, 84, 1))
-            x_t1 = x_t1 / 255.0
+            # x_t1 = x_t1 / 255.0
             self.s_t1 = np.append(self.s_t[:, :, 1:], x_t1, axis=2)
         return
 
