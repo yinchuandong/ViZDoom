@@ -4,7 +4,7 @@ import random
 import time
 
 from config import *
-from game.game_state import GameState
+from game_state import GameState
 from redis_queue import RedisQueue
 import cPickle
 

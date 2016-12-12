@@ -167,6 +167,7 @@ class A3C(object):
         print 'Now saving data....'
         for t in predict_treads:
             t.join()
+        train_thread.join()
 
         self.backup()
         return
