@@ -28,11 +28,19 @@ def initialize_vizdoom(config_file_path):
 
 class GameState():
     def __init__(self):
-        self.game = initialize_vizdoom("../config/basic.cfg")
-        # self.game = initialize_vizdoom("../../examples/config/deadly_corridor.cfg")
+        # self.game = initialize_vizdoom("../config/basic.cfg")
+        # self.game = initialize_vizdoom("../config/simpler_basic.cfg")
+        self.game = initialize_vizdoom("../../examples/config/deadly_corridor.cfg")
         self.button_size = self.game.get_available_buttons_size()
         # self.actions = [list(a) for a in it.product([0, 1], repeat=self.button_size)]
-        self.actions = [[1, 0, 1], [0, 1, 1], [0, 0, 1]]
+        self.actions = [
+            [1, 0, 0, 0, 0, 0, 0],
+            [0, 1, 0, 0, 0, 0, 0],
+            [0, 0, 1, 0, 0, 0, 0],
+            [0, 0, 0, 1, 0, 0, 0],
+            [0, 0, 0, 0, 0, 1, 0],
+            [0, 0, 0, 0, 0, 0, 1],
+        ]
         self.skip_rate = 4
         self.reset()
         return
@@ -66,15 +74,18 @@ class GameState():
 def test():
     episodes = 10
     gamestate = GameState()
+    print 'button_size', gamestate.button_size
     for i in range(episodes):
         gamestate.reset()
         while not gamestate.terminal:
             gamestate.process(randint(0, len(gamestate.actions) - 1))
+            # gamestate.process(0)
             Image.fromarray(gamestate.s_t).save('img/s_t.png')
             Image.fromarray(gamestate.s_t1).save('img/s_t1.png')
             print 'reward:', gamestate.reward
             print 'terminal:', gamestate.terminal
             print 'action_size:', len(gamestate.actions)
+            print 'game_vars:', gamestate.game.get_state().game_variables
             gamestate.update()
             time.sleep(0.02)
         print "Result:", gamestate.game.get_total_reward()

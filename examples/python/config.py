@@ -1,7 +1,7 @@
 GAME = 'doom'
 STATE_DIM = 84
 STATE_CHN = 4
-ACTION_DIM = 3
+ACTION_DIM = 6
 
 BATCH_SIZE = 32  # the batch size of training
 RANDOM_ACTION_PROBILITY = 1e-10  # the probilitf of randomly selecting action
