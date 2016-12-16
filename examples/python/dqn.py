@@ -2,13 +2,14 @@ import tensorflow as tf
 import numpy as np
 import random
 import time
+import os
 from collections import deque
 from netutil import *
 from game_state import GameState
 
 INPUT_SIZE = 84
 INPUT_CHANNEL = 4
-ACTIONS_DIM = 2
+ACTIONS_DIM = 3
 
 GAMMA = 0.99
 FINAL_EPSILON = 0.0001
@@ -49,7 +50,7 @@ class DQN(object):
         tf.scalar_summary('living_time', self.time_input)
         tf.scalar_summary('reward', self.reward_input)
         self.summary_op = tf.merge_all_summaries()
-        self.summary_writer = tf.train.SummaryWriter(LOG_FILE, self.sess.graph)
+        self.summary_writer = tf.train.SummaryWriter(LOG_FILE, self.session.graph)
 
         self.episode_start_time = 0.0
         self.episode_reward = 0.0
@@ -60,29 +61,29 @@ class DQN(object):
         s = tf.placeholder('float', shape=[None, INPUT_SIZE, INPUT_SIZE, INPUT_CHANNEL], name='s')
 
         # hidden conv layer
-        W_conv1 = weight_variable([8, 8, INPUT_CHANNEL, 32], name='W_conv1')
-        b_conv1 = bias_variable([32], name='b_conv1')
+        W_conv1 = weight_variable([8, 8, INPUT_CHANNEL, 32])
+        b_conv1 = bias_variable([32])
         h_conv1 = tf.nn.relu(conv2d(s, W_conv1, 4) + b_conv1)
 
-        W_conv2 = weight_variable([4, 4, 32, 64], name='W_conv2')
-        b_conv2 = bias_variable([64], name='b_conv2')
+        W_conv2 = weight_variable([4, 4, 32, 64])
+        b_conv2 = bias_variable([64])
         h_conv2 = tf.nn.relu(conv2d(h_conv1, W_conv2, 2) + b_conv2)
 
-        W_conv3 = weight_variable([3, 3, 64, 64], name='W_conv3')
-        b_conv3 = bias_variable([64], name='b_conv3')
+        W_conv3 = weight_variable([3, 3, 64, 64])
+        b_conv3 = bias_variable([64])
         h_conv3 = tf.nn.relu(conv2d(h_conv2, W_conv3, 1) + b_conv3)
 
         h_conv3_out_size = np.prod(h_conv3.get_shape().as_list()[1:])
         print h_conv3_out_size
-        h_conv3_flat = tf.reshape(h_conv3, [-1, h_conv3_out_size], name='h_conv3_flat')
+        h_conv3_flat = tf.reshape(h_conv3, [-1, h_conv3_out_size])
 
-        W_fc1 = weight_variable([h_conv3_out_size, 512], name='W_fc1')
-        b_fc1 = bias_variable([512], name='b_fc1')
+        W_fc1 = weight_variable([h_conv3_out_size, 512])
+        b_fc1 = bias_variable([512])
         h_fc1 = tf.nn.relu(tf.matmul(h_conv3_flat, W_fc1) + b_fc1)
 
         # readout layer: Q_value
-        W_fc2 = weight_variable([512, ACTIONS_DIM], name='W_fc2')
-        b_fc2 = bias_variable([ACTIONS_DIM], name='b_fc2')
+        W_fc2 = weight_variable([512, ACTIONS_DIM])
+        b_fc2 = bias_variable([ACTIONS_DIM])
         Q_value = tf.matmul(h_fc1, W_fc2) + b_fc2
 
         self.s = s
@@ -90,8 +91,8 @@ class DQN(object):
         return
 
     def create_minimize(self):
-        self.a = tf.placeholder('float', shape=[None, ACTIONS_DIM], name='a')
-        self.y = tf.placeholder('float', shape=[None], name='y')
+        self.a = tf.placeholder('float', shape=[None, ACTIONS_DIM])
+        self.y = tf.placeholder('float', shape=[None])
         Q_action = tf.reduce_sum(tf.mul(self.Q_value, self.a), reduction_indices=1)
         self.loss = tf.reduce_mean(tf.square(self.y - Q_action))
         self.optimizer = tf.train.AdamOptimizer(ALPHA)
@@ -115,7 +116,7 @@ class DQN(object):
             self.episode_reward = 0.0
             self.episode_start_time = time.time()
 
-        if len(self.replay_buffer) > REPLAY_MEMORY:
+        if len(self.replay_buffer) == REPLAY_MEMORY:
             self.train_Q_network()
         return
 
@@ -127,15 +128,15 @@ class DQN(object):
         """
         :param state: 1x84x84x3
         """
-        Q_value_t = self.Q_value.eval(session=self.session, feed_dict={self.s: state})[0]
+        Q_value_t = self.session.run(self.Q_value, feed_dict={self.s: [state]})[0]
         action_index = 0
         if random.random() <= self.epsilon:
             action_index = random.randrange(ACTIONS_DIM)
         else:
             action_index = np.argmax(Q_value_t)
 
-        if self.epsilon > FINAL_EPSILON and self.global_t > OBSERVE:
-            self.epsilon -= (INITIAL_EPSILON - FINAL_EPSILON) / OBSERVE
+        if self.epsilon > FINAL_EPSILON and self.global_t < EPSILON_TIME_STEP:
+            self.epsilon -= (INITIAL_EPSILON - FINAL_EPSILON) / EPSILON_TIME_STEP
         max_q_value = np.max(Q_value_t)
         return action_index, max_q_value
 
@@ -151,7 +152,7 @@ class DQN(object):
         terminal_batch = [t[4] for t in minibatch]
 
         y_batch = []
-        Q_value_batch = self.session.run(Q_value, feed_dict={self.s: next_state_batch})
+        Q_value_batch = self.session.run(self.Q_value, feed_dict={self.s: next_state_batch})
         for i in range(BATCH_SIZE):
             terminal = terminal_batch[i]
             if terminal:
@@ -183,7 +184,7 @@ class DQN(object):
     def restore(self):
         checkpoint = tf.train.get_checkpoint_state(CHECKPOINT_DIR)
         if checkpoint and checkpoint.model_checkpoint_path:
-            self.saver.restore(self.sess, checkpoint.model_checkpoint_path)
+            self.saver.restore(self.session, checkpoint.model_checkpoint_path)
             print("checkpoint loaded:", checkpoint.model_checkpoint_path)
             tokens = checkpoint.model_checkpoint_path.split("-")
             # set global step
@@ -197,7 +198,7 @@ class DQN(object):
         if not os.path.exists(CHECKPOINT_DIR):
             os.mkdir(CHECKPOINT_DIR)
 
-        self.saver.save(self.sess, CHECKPOINT_DIR + '/' + 'checkpoint', global_step=self.global_t)
+        self.saver.save(self.session, CHECKPOINT_DIR + '/' + 'checkpoint', global_step=self.global_t)
         return
 
 
@@ -210,11 +211,15 @@ def run_doom():
     game.reset()
 
     while agent.global_t < MAX_TIME_STEP:
-        action_id = agent.epsilon_greedy(game.s_t)
+        action_id, action_q = agent.epsilon_greedy(game.s_t)
         game.process(action_id)
         action = np.zeros(ACTIONS_DIM)
         action[action_id] = 1
         agent.perceive(game.s_t, action, game.reward, game.s_t1, game.terminal)
+
+        if agent.global_t % 10 == 0:
+            print 'global_t:', agent.global_t, '/ epsilon:', agent.epsilon, '/ terminal:', game.terminal, \
+                '/ action:', action_id, '/ reward:', game.reward, '/ q_value:', action_q
 
         if game.terminal:
             game.reset()
