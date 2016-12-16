@@ -4,18 +4,20 @@ import random
 import time
 from collections import deque
 from netutil import *
+from game_state import GameState
 
 INPUT_SIZE = 84
 INPUT_CHANNEL = 4
-ACTIONS = 2
+ACTIONS_DIM = 2
 
 GAMMA = 0.99
 FINAL_EPSILON = 0.0001
-INITIAL_EPSILON = 0.001
+INITIAL_EPSILON = 1.0
 
 ALPHA = 1e-6  # the learning rate of optimizer
 
 MAX_TIME_STEP = 10 * 10 ** 7
+EPSILON_TIME_STEP = 1 * 10 ** 6  # for annealing the epsilon greedy
 REPLAY_MEMORY = 50000
 BATCH_SIZE = 32
 
@@ -50,6 +52,7 @@ class DQN(object):
         self.summary_writer = tf.train.SummaryWriter(LOG_FILE, self.sess.graph)
 
         self.episode_start_time = 0.0
+        self.episode_reward = 0.0
         return
 
     def create_network(self):
@@ -78,8 +81,8 @@ class DQN(object):
         h_fc1 = tf.nn.relu(tf.matmul(h_conv3_flat, W_fc1) + b_fc1)
 
         # readout layer: Q_value
-        W_fc2 = weight_variable([512, ACTIONS], name='W_fc2')
-        b_fc2 = bias_variable([ACTIONS], name='b_fc2')
+        W_fc2 = weight_variable([512, ACTIONS_DIM], name='W_fc2')
+        b_fc2 = bias_variable([ACTIONS_DIM], name='b_fc2')
         Q_value = tf.matmul(h_fc1, W_fc2) + b_fc2
 
         self.s = s
@@ -87,7 +90,7 @@ class DQN(object):
         return
 
     def create_minimize(self):
-        self.a = tf.placeholder('float', shape=[None, ACTIONS], name='a')
+        self.a = tf.placeholder('float', shape=[None, ACTIONS_DIM], name='a')
         self.y = tf.placeholder('float', shape=[None], name='y')
         Q_action = tf.reduce_sum(tf.mul(self.Q_value, self.a), reduction_indices=1)
         self.loss = tf.reduce_mean(tf.square(self.y - Q_action))
@@ -100,14 +103,16 @@ class DQN(object):
 
         self.replay_buffer.append((state, action, reward, next_state, terminal))
 
+        self.episode_reward += reward
         if self.episode_start_time == 0.0:
             self.episode_start_time = time.time()
 
         if terminal or self.global_t % 600 == 0:
             living_time = time.time() - self.episode_start_time
-            self.record_log(reward, living_time)
+            self.record_log(self.episode_reward, living_time)
 
         if terminal:
+            self.episode_reward = 0.0
             self.episode_start_time = time.time()
 
         if len(self.replay_buffer) > REPLAY_MEMORY:
@@ -125,7 +130,7 @@ class DQN(object):
         Q_value_t = self.Q_value.eval(session=self.session, feed_dict={self.s: state})[0]
         action_index = 0
         if random.random() <= self.epsilon:
-            action_index = random.randrange(ACTIONS)
+            action_index = random.randrange(ACTIONS_DIM)
         else:
             action_index = np.argmax(Q_value_t)
 
@@ -147,7 +152,7 @@ class DQN(object):
 
         y_batch = []
         Q_value_batch = self.session.run(Q_value, feed_dict={self.s: next_state_batch})
-        for i in range(0, BATCH_SIZE):
+        for i in range(BATCH_SIZE):
             terminal = terminal_batch[i]
             if terminal:
                 y_batch.append(reward_batch[i])
@@ -197,6 +202,24 @@ class DQN(object):
 
 
 def run_doom():
+    '''
+    the function for training
+    '''
+    agent = DQN()
+    game = GameState()
+    game.reset()
+
+    while agent.global_t < MAX_TIME_STEP:
+        action_id = agent.epsilon_greedy(game.s_t)
+        game.process(action_id)
+        action = np.zeros(ACTIONS_DIM)
+        action[action_id] = 1
+        agent.perceive(game.s_t, action, game.reward, game.s_t1, game.terminal)
+
+        if game.terminal:
+            game.reset()
+        # s_t <- s_t1
+        game.update()
 
     return
 

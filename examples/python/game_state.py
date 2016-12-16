@@ -29,17 +29,21 @@ def initialize_vizdoom(config_file_path):
 class GameState():
     def __init__(self):
         # self.game = initialize_vizdoom("../config/basic.cfg")
-        # self.game = initialize_vizdoom("../config/simpler_basic.cfg")
-        self.game = initialize_vizdoom("../../examples/config/deadly_corridor.cfg")
+        self.game = initialize_vizdoom("../config/simpler_basic.cfg")
+        # self.game = initialize_vizdoom("../../examples/config/deadly_corridor.cfg")
         self.button_size = self.game.get_available_buttons_size()
-        # self.actions = [list(a) for a in it.product([0, 1], repeat=self.button_size)]
+        # self.actions = [
+        #     [1, 0, 0, 0, 0, 0, 0],
+        #     [0, 1, 0, 0, 0, 0, 0],
+        #     [0, 0, 1, 0, 0, 0, 0],
+        #     [0, 0, 0, 1, 0, 0, 0],
+        #     [0, 0, 1, 0, 0, 1, 0],
+        #     [0, 0, 1, 0, 0, 0, 1],
+        # ]
         self.actions = [
-            [1, 0, 0, 0, 0, 0, 0],
-            [0, 1, 0, 0, 0, 0, 0],
-            [0, 0, 1, 0, 0, 0, 0],
-            [0, 0, 0, 1, 0, 0, 0],
-            [0, 0, 1, 0, 0, 1, 0],
-            [0, 0, 1, 0, 0, 0, 1],
+            [1, 0, 1],
+            [0, 1, 1],
+            [0, 0, 1],
         ]
         self.skip_rate = 4
         self.reset()
